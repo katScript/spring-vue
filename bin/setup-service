@@ -1,0 +1,17 @@
+#!/bin/bash
+
+docker-compose exec -T server mvn install
+docker-compose exec -T server mvn clean package
+
+docker-compose exec -T -u root server touch /etc/init.d/springboot
+docker-compose exec -T -u root server touch /var/run/springboot.pid
+docker-compose exec -T -u root server touch /var/log/springboot.log
+
+docker-compose exec -T -u root server cp /tmp/springboot-service/springboot.sh /etc/init.d/springboot
+docker-compose exec -T -u root server chmod +x /etc/init.d/springboot
+docker-compose exec -T -u root server update-rc.d springboot defaults
+
+bin/restart
+
+echo "Start springboot service"
+bin/springboot start

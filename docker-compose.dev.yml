@@ -1,0 +1,12 @@
+# Version 1.0.0
+version: "3"
+
+services:
+  server:
+    volumes: &appvolumes
+      - ./src:/var/www/html:delegated
+
+  app:
+    volumes: *appvolumes
+    extra_hosts:
+      - "host.docker.internal:172.17.0.1"

@@ -1,0 +1,14 @@
+#!/bin/bash
+
+red=$(tput setaf 1)
+normal=$(tput sgr0)
+
+echo "Correcting filesystem permission..."
+
+if [[ -z "$1" ]]; then
+  bin/r-jdknotty find /var/www /var/www/html /var/www/html/target /var/www/html/src /var/www/html/views /var/www/html/views/ -type f -exec chmod u+w {} \;
+else
+  bin/r-jdknotty find $1 -type f -exec chmod u+w {} \;
+fi
+
+echo "Done."

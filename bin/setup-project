@@ -1,0 +1,65 @@
+#!bin/bash
+GIT=""
+BRANCH=""
+DATABASE=""
+SITE_URL=""
+API_URL=""
+
+green=$(tput setaf 2)
+blue=$(tput setaf 4)
+normal=$(tput sgr0)
+
+read -p "GIT Url (git src code): " -e -i "git@github.com:katScript/spring-vue.git" GIT
+read -p "GIT Branch: " -e -i "main" BRANCH
+read -p "DATABASE (you can leave it empty to skip the sql import): " -e -i "mysql/file_name.sql" DATABASE
+read -p "SITE_URL: " -e -i "myhost.site.local" SITE_URL
+read -p "API_URL: " -e -i "myhost.api.local" API_URL
+
+if [ -n "$GIT" ] && [ -n "$BRANCH" ] && [ -n "$SITE_URL" ] && [ -n "$API_URL" ]; then
+  rm -rf src
+  mkdir -p src src/views
+
+  echo "${green}Restarting the containers...${normal}"
+  bin/restart
+  sleep 5
+
+  if [ -z "$DATABASE" ]; then
+    echo "${blue}Skip database import...${normal}"
+  else
+    echo "${green}Import database...${normal}"
+    bin/mysql-import $DATABASE
+  fi
+
+  bin/fixowns
+
+  echo "${green}Pull the code & switch the branch...${normal}"
+  bin/git-init $GIT $BRANCH
+
+  bin/fixowns
+  bin/fixperms
+
+  echo "${green}Build frontend with vuejs...${normal}"
+  bin/npm install
+  bin/npm run build
+
+  echo "${green}Create spring boot service...${normal}"
+  bin/setup-service
+
+  echo "${green}Copying all files from host to container...${normal}"
+  bin/copytocontainer --all
+
+  echo "Create a DNS host entry for the site..."
+  echo "127.0.0.1 ::1 $SITE_URL" | sudo tee -a /etc/hosts
+  echo "127.0.0.1 ::1 $API_URL" | sudo tee -a /etc/hosts
+
+  echo "Generating SSL certificate..."
+  bin/setup-ssl site $SITE_URL
+  bin/setup-ssl api $API_URL
+
+  echo "${green}Docker development environment setup complete.${normal}"
+  echo "You may now access your project at ${green} https://${SITE_URL}/${normal}"
+  echo "You may now access your api at ${green} https://${API_URL}/${normal}"
+
+else
+  echo "All fiends above are required to setup, please fill..."
+fi

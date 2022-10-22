@@ -1,0 +1,44 @@
+# Version 1.0.0
+version: "3"
+
+services:
+  server:
+    build: images/nginx/${NGINX_VERSION}
+    ports:
+      - "80:8000"
+      - "443:8443"
+      - "5005:5005"
+    links:
+      - db
+      - app
+    volumes: &appvolumes
+      - appdata:/var/www/html
+      - sockdata:/sock
+      - ssldata:/etc/nginx/certs
+
+  app:
+    build: images/nodejs/${NODEJS_VERSION}
+#    this is for local develop
+    tty: true
+    ports:
+       - "8080:8080"
+    command: tail -f /dev/null
+    volumes: *appvolumes
+
+  redis:
+    image: redis:${REDIS_VERSION}
+
+  db:
+    image: ${DB_VERSION}
+    ports:
+      - "3306:3306"
+    env_file: env/db.env
+    command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - dbdata:/var/lib/mysql
+
+volumes:
+  appdata:
+  dbdata:
+  sockdata:
+  ssldata:

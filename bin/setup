@@ -1,0 +1,67 @@
+#!/bin/bash
+SITE_URL=""
+API_URL=""
+
+read -p "SITE_URL: " -e -i "myhost.site.local" SITE_URL
+read -p "API_URL: " -e -i "myhost.api.local" API_URL
+
+green=$(tput setaf 2)
+blue=$(tput setaf 4)
+normal=$(tput sgr0)
+
+if [ -n "$API_URL" ] && [ -n "$SITE_URL" ]; then
+  rm -rf src
+  mkdir -p src
+
+  echo "${green}Restarting the containers...${normal}"
+  bin/restart
+  sleep 5
+
+  #install maven spring boot project
+  bin/fixowns
+
+  echo "${blue}Installing Spring boot application...${normal}"
+  bin/jdknotty mvn archetype:generate -DgroupId=com.spring.app -DartifactId=spring-boot -DarchetypeArtifactId=maven-archetype-quickstart -DinteractiveMode=false
+
+  echo "${blue}Prepare Spring boot application...${normal}"
+  mv -v src/spring-boot/* src/
+  rm -rf src/spring-boot
+
+  echo "${blue}Installing vuejs...${normal}"
+  bin/nodejsnotty vue create vue
+
+  mv src/views/vue/* src/views
+  rm -rf src/views/vue
+
+  echo "${blue}Copying pom.xml file...${normal}"
+  cp env/maven/pom.xml src/
+  echo "${blue}Copying vuejs config file...${normal}"
+  cp env/vuejs/* src/views
+
+  echo "${green}Build frontend with vuejs...${normal}"
+  bin/npm run build
+
+  echo "${green}Create spring boot service...${normal}"
+  rm -rf src/src/main/java/com/spring/app/*
+  cp env/maven/Application.java src/src/main/java/com/spring/app/
+
+  bin/setup-service
+
+  echo "${green}Copying all files from host to container...${normal}"
+  bin/copytocontainer --all
+
+  echo "Create a DNS host entry for the site..."
+  echo "127.0.0.1 ::1 $SITE_URL" | sudo tee -a /etc/hosts
+  echo "127.0.0.1 ::1 $API_URL" | sudo tee -a /etc/hosts
+
+  echo "Generating SSL certificate..."
+  bin/setup-ssl site $SITE_URL
+  bin/setup-ssl api $API_URL
+
+  echo "${green}Docker development environment setup complete.${normal}"
+  echo "You may now access your project at ${green} https://${SITE_URL}/${normal}"
+  echo "You may now access your api at ${green} https://${API_URL}/${normal}"
+
+else
+  echo "All fiends above are required to setup, please fill..."
+fi
